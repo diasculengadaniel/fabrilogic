@@ -1,0 +1,11 @@
+{
+  "id": 2,
+  "title": "Dobrar o valor",
+  "description": "Receba um número da entrada e envie o dobro dele para a saída.",
+  "inputs": [5, 2],
+  "expected_outputs": [10, 4],
+  "memory_slots": 1,
+  "hints": [
+    "Você pode somar o número com ele mesmo."
+  ]
+}

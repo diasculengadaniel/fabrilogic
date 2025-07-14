@@ -1,0 +1,12 @@
+{
+  "id": 1,
+  "title": "Somar as entradas",
+  "description": "Receba dois números da entrada (Inbox), some-os e envie o resultado para a saída (Outbox).",
+  "inputs": [3, 4],
+  "expected_outputs": [7],
+  "memory_slots": 2,
+  "hints": [
+    "Use COPYTO para guardar valores temporários.",
+    "Use ADD para somar o valor guardado com o novo valor."
+  ]
+}
