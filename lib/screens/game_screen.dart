@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../fabrilang/parser.dart';
 import '../fabrilang/model.dart';
 import '../fabrilang/executor.dart';
+import '../models/problem.dart';
+import '../services/problem_loader.dart';
 
 class GameScreen extends StatefulWidget {
   final int level;
@@ -20,35 +22,38 @@ class _GameScreenState extends State<GameScreen> {
   String? error;
   int currentLine = 0;
 
-  // Exemplo de setup inicial para o nível
-  final List<int> initialInbox = [3, 7];
-  final int memorySlots = 2;
+  Problem? problem;
+  bool loading = true;
+  bool success = false;
 
   @override
   void initState() {
     super.initState();
-    _codeController = TextEditingController(
-      text: '''
-take
-copyto 0
-take
-add 0
-drop
-halt
-''',
-    );
+    _codeController = TextEditingController();
+    _loadProblem();
+  }
+
+  Future<void> _loadProblem() async {
+    setState(() {
+      loading = true;
+    });
+    problem = await ProblemLoader.loadLevel(widget.level);
     _setupExecutor();
+    setState(() {
+      loading = false;
+    });
   }
 
   void _setupExecutor() {
     setState(() {
       error = null;
       feedback = '';
+      success = false;
       try {
         instructions = FabriLangParser.parse(_codeController.text);
         state = FabriState(
-          memory: List.filled(memorySlots, null),
-          inbox: [...initialInbox],
+          memory: List.filled(problem?.memorySlots ?? 2, null),
+          inbox: [...(problem?.inputs ?? [])],
           accumulator: null,
         );
         executor = FabriLangExecutor(
@@ -78,6 +83,7 @@ halt
         error = e.toString();
       }
     });
+    _checkSuccess();
   }
 
   void _run() {
@@ -91,10 +97,25 @@ halt
         error = e.toString();
       }
     });
+    _checkSuccess();
   }
 
   void _reset() {
     _setupExecutor();
+  }
+
+  void _checkSuccess() {
+    if (problem != null && state != null) {
+      success = _outputsMatch(state!.outbox, problem!.expectedOutputs);
+    }
+  }
+
+  bool _outputsMatch(List<int> outbox, List<int> expected) {
+    if (outbox.length != expected.length) return false;
+    for (int i = 0; i < outbox.length; i++) {
+      if (outbox[i] != expected[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -104,6 +125,12 @@ halt
     final inbox = state?.inbox ?? [];
     final outbox = state?.outbox ?? [];
     final instrs = instructions ?? [];
+
+    if (loading || problem == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -118,16 +145,22 @@ halt
       ),
       body: Padding(
         padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
           children: [
+            Text(problem!.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            Text(problem!.description),
+            if (problem!.hints.isNotEmpty)
+              ExpansionTile(
+                title: const Text('Dicas'),
+                children: problem!.hints.map((e) => ListTile(title: Text(e))).toList(),
+              ),
+            const Divider(),
             if (error != null)
               Container(
                 color: Colors.red[100],
                 padding: const EdgeInsets.all(8),
                 child: Text(error!, style: const TextStyle(color: Colors.red)),
               ),
-            const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -136,7 +169,6 @@ halt
                 Text('Acumulador: ${acc ?? "null"}'),
               ],
             ),
-            const SizedBox(height: 4),
             Row(
               children: [
                 const Text('Memória: '),
@@ -214,6 +246,13 @@ halt
                 ),
               ],
             ),
+            if (success)
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                color: Colors.green[100],
+                padding: const EdgeInsets.all(12),
+                child: const Text('Parabéns! Saída correta!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              )
           ],
         ),
       ),
